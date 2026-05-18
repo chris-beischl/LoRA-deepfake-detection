@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+  - repo: local
+    hooks:
+    - id: nbclearout
+      name: jupyter notebook clear output
+      entry: uv run jupyter nbconvert --clear-output --inplace
+      types: [jupyter]
+      language: system
+    - id: ruff_format
+      name: ruff format
+      entry: uv run ruff format
+      types_or: [python, jupyter]
+      language: system
+    - id: ruff_check
+      name: ruff check
+      entry: uv run ruff check --fix
+      types_or: [python, jupyter]
+      language: system
+    - id: mypy
+      name: mypy
+      entry: uv run mypy deepfakedet/ scripts/ train.py eval.py
+      language: system
+      pass_filenames: false
+      types: [python]

@@ -1,0 +1,15 @@
+# Copied from https://github.com/chris-beischl/liteViT
+defaults:
+  - train_config
+  - model: vit_base_lora
+  - data: deepfake
+  - loss: bce
+  - optimizer: adam_w
+  - scheduler: cosine_warmup
+  - metrics: binary
+  - trainer: default
+  - callbacks: default
+  - logger: mlflow
+  - _self_
+
+seed: 0

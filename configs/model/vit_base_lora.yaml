@@ -1,0 +1,12 @@
+_target_: deepfakedet.models.ViTClassifier
+backbone_name: google/vit-base-patch16-224
+num_classes: 1
+peft_cfg:
+  _target_: peft.LoraConfig
+  r: 16
+  lora_alpha: 16
+  target_modules:
+    - query
+    - value
+  lora_dropout: 0.1
+  bias: "none"

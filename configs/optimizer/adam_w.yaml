@@ -1,0 +1,6 @@
+# Copied from https://github.com/chris-beischl/liteViT
+_target_: torch.optim.AdamW
+_partial_: True
+betas: [0.9, 0.999]
+lr: 0.001
+weight_decay: 0.05

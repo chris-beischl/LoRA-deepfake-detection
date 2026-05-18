@@ -1,0 +1,9 @@
+# Copied from https://github.com/chris-beischl/liteViT
+_target_: deepfakedet.training.utils.build_lr_scheduler_with_warmup
+_partial_: True
+warmup_epochs: 20
+t_max: ${trainer.max_epochs}
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: True
+  eta_min: 0.0  # default

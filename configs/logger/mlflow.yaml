@@ -1,0 +1,6 @@
+# Adapted from https://github.com/chris-beischl/liteViT
+_target_: lightning.pytorch.loggers.MLFlowLogger
+experiment_name: deepfakedet
+run_name: ${hydra:runtime.choices.model}-${hydra:runtime.choices.data}_${now:%Y-%m-%d_%H-%M-%S}
+tracking_uri: sqlite:///mlflow.db
+artifact_location: ${oc.env:PWD}/mlruns/artifacts

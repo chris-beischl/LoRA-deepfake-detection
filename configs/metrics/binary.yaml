@@ -1,0 +1,6 @@
+accuracy:
+  _target_: torchmetrics.classification.BinaryAccuracy
+f1:
+  _target_: torchmetrics.classification.BinaryF1Score
+auroc:
+  _target_: torchmetrics.classification.BinaryAUROC

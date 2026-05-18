@@ -1,0 +1,32 @@
+# configs/data/deepfake.yaml
+_target_: deepfakedet.data.deepfake.DeepfakeDataModule
+csv_path: data/FINAL_DATASET.csv
+img_dir: data/images
+batch_size: 32
+num_workers: 4
+persistent_workers: true
+pin_memory: true
+
+train_transform:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.RandomResizedCrop
+      size: 224
+      scale: [0.8, 1.0]
+    - _target_: torchvision.transforms.RandomHorizontalFlip
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+eval_transform:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.Resize
+      size: 256
+    - _target_: torchvision.transforms.CenterCrop
+      size: 224
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
