@@ -4,8 +4,9 @@ Binary classifier distinguishing real portrait photos from AI-generated faces.
 Fine-tunes a pre-trained ViT-B/16 using LoRA adapters (PEFT), keeping 99%+ of
 the backbone frozen while adapting only the attention projections.
 
-**Dataset:** [Deepfake Detection Dataset 2026](https://www.kaggle.com/datasets/chuneeb/deepfake-detection-dataset-2026) —
-6557 images (57% fake, 43% real) with a predefined train/val/test split.
+**Primary dataset:** [140K Real and Fake Faces](https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces) —
+140 000 images, perfectly balanced, predefined train/valid/test split. Real faces from Flickr,
+fake faces generated with StyleGAN2.
 
 **Tech stack:** PyTorch · PyTorch Lightning · HuggingFace Transformers · PEFT · Hydra · MLFlow · uv
 
@@ -32,27 +33,36 @@ uv run pre-commit install   # optional: enable pre-commit hooks
 
 ## Data
 
-Download and cache all images locally (~6 500 images, ~1–2 GB):
+**140K Real and Fake Faces (primary):** Download from [Kaggle](https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces)
+and place at `data/140k-real-and-fake-faces/`. No further setup required — images are
+pre-organised into `{train,valid,test}/{real,fake}/` directories.
+
+**Deepfake Detection Dataset 2026 (auxiliary):** Download the CSV from
+[Kaggle](https://www.kaggle.com/datasets/chuneeb/deepfake-detection-dataset-2026), then fetch images:
 
 ```bash
 uv run python scripts/download_data.py --csv data/deepfake_detection_dataset.csv
 ```
 
 Images are saved to `data/images/{train,val,test}/{image_id}.jpg`.
-The CSV and downloaded images are excluded from version control.
+All datasets and images are excluded from version control.
 
 ---
 
 ## Training
 
 ```bash
-uv run python train.py
+# 140k dataset (primary)
+uv run python train.py data=faces140k loss=bce_balanced
+
+# Deepfake Detection Dataset 2026
+uv run python train.py data=deepfake loss=bce
 ```
 
 Config values can be overridden via Hydra at the command line:
 
 ```bash
-uv run python train.py model=vit_base_lora model.peft_cfg.r=32 trainer.max_epochs=20
+uv run python train.py data=faces140k loss=bce_balanced model.peft_cfg.r=32 trainer.max_epochs=20
 ```
 
 Monitor runs in the MLFlow UI:

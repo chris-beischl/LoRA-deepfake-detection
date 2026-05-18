@@ -2,8 +2,8 @@
 defaults:
   - train_config
   - model: vit_base_lora
-  - data: deepfake
-  - loss: bce
+  - data: faces140k
+  - loss: bce_balanced
   - optimizer: adam_w
   - scheduler: cosine_warmup
   - metrics: binary
