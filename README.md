@@ -89,13 +89,23 @@ Results are logged to the original MLFlow run via the `run_id` stored in the che
 
 ## Results
 
-*To be updated after training on a suitable dataset.*
+**Dataset:** 140K Real and Fake Faces — 100k train / 20k val / 20k test, perfectly balanced.
+**Model:** ViT-B/16 + LoRA (r=16, target: query + value projections)
+**Training:** 10 epochs, AdamW, cosine LR with warmup, batch size 128
 
-**Note on current dataset:** The [Deepfake Detection Dataset 2026](https://www.kaggle.com/datasets/chuneeb/deepfake-detection-dataset-2026)
-yields inflated metrics (~98% test accuracy after 2 epochs) because real and fake images
-originate from visually distinct sources (Unsplash photography vs. synthetic face generators).
-The model learns source-domain features rather than manipulation artifacts.
-A dataset with consistent source distribution across classes is required for meaningful evaluation.
+| Metric   | Test score |
+|----------|-----------|
+| Accuracy | 99.29%    |
+| AUROC    | 99.98%    |
+| F1       | 99.28%    |
+| Loss     | 0.0186    |
+
+The model converges rapidly — 96.8% accuracy is already reached after epoch 2, with diminishing
+gains thereafter. LoRA keeps 99%+ of backbone parameters frozen throughout, training only
+~0.5M adapter parameters on top of the 86M ViT-B/16 backbone.
+
+**Note on dataset scope:** Results reflect detection of StyleGAN2-generated faces specifically.
+Generalisation to other generation methods (diffusion models, face-swap) is not evaluated here.
 
 ---
 
