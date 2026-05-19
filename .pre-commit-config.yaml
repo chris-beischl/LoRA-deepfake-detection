@@ -26,7 +26,7 @@ repos:
       language: system
     - id: mypy
       name: mypy
-      entry: uv run mypy deepfakedet/ scripts/ train.py eval.py
+      entry: uv run mypy deepfakedet/ scripts/ train.py eval.py export.py
       language: system
       pass_filenames: false
       types: [python]

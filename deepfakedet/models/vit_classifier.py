@@ -30,7 +30,18 @@ class ViTClassifier(nn.Module):
 
         self.head = nn.Linear(hidden_size, self.num_classes)
 
+        total = sum(p.numel() for p in self.parameters())
+        trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print(
+            f"Parameters: {trainable:,} trainable / {total:,} total "
+            f"({100 * trainable / total:.2f}% trained)"
+        )
+
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         outputs = self.model(pixel_values=pixel_values)
         cls_token = outputs.last_hidden_state[:, 0, :]
         return self.head(cls_token)  # type: ignore[no-any-return]
+
+    def merge_adapter(self) -> None:
+        if isinstance(self.model, PeftModel):
+            self.model = self.model.merge_and_unload()
