@@ -1,4 +1,5 @@
 # Deepfake Detection via LoRA Fine-Tuned ViT
+[![HuggingFace](https://img.shields.io/badge/🤗%20Model-deepfake--detection-yellow)](https://huggingface.co/ChrisBeischl/LoRA-deepfake-detection)
 
 Binary classifier distinguishing real portrait photos from AI-generated faces.
 Fine-tunes a pre-trained ViT-B/16 using LoRA adapters (PEFT), keeping 99%+ of
