@@ -80,10 +80,43 @@ Checkpoints are saved to `checkpoints/{experiment}/{model}/{data}/{run_id}/`.
 Run on the test set from a saved checkpoint:
 
 ```bash
-uv run python eval.py --checkpoint checkpoints/<path>/best.ckpt
+uv run python eval.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt
 ```
 
 Results are logged to the original MLFlow run via the `run_id` stored in the checkpoint.
+
+---
+
+## Export & Quantization
+
+Export a trained checkpoint to ONNX and optionally quantize:
+
+```bash
+# FP32 ONNX + INT8 quantization (default)
+uv run python export.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt
+
+# Skip quantization
+uv run python export.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt --quant-type none
+
+# Use a different quantization type
+uv run python export.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt --quant-type QUInt8
+
+# Custom output directory
+uv run python export.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt --output-dir exports/
+```
+
+LoRA adapters are merged into the backbone before export (`merge_and_unload()`), producing a
+standard ViT-B/16 with no PEFT dependency at inference time. Outputs are saved to `--output-dir`:
+- `model.onnx` — FP32 model
+- `model_qint8.onnx` — dynamically quantized INT8 model
+
+**Quantization results (dynamic INT8, CPU, 100 inference runs):**
+
+| Metric           |   FP32  | INT8   | Improvement |
+|------------------|---------|--------|-------------|
+| Size (MB)        | 327.5   | 82.9   | −74.7%      |
+| Latency mean (ms)| 136.3   | 46.9   | −65.6%      |
+| Latency std (ms) | 36.8    | 10.2   | −72.2%      |
 
 ---
 
@@ -115,6 +148,7 @@ Generalisation to other generation methods (diffusion models, face-swap) is not 
 deepfake_detection/
 ├── train.py                  # Training entry point
 ├── eval.py                   # Evaluation entry point
+├── export.py                 # ONNX export + quantization + benchmarking
 ├── scripts/
 │   └── download_data.py      # Dataset download utility
 ├── configs/                  # Hydra configuration files
