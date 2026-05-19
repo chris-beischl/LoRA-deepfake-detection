@@ -6,6 +6,7 @@ from typing import Any
 import hydra
 import numpy as np
 import onnxruntime as ort
+import pandas as pd
 import torch
 from omegaconf import OmegaConf
 from onnxruntime.quantization import QuantType, quantize_dynamic
@@ -14,10 +15,14 @@ from deepfakedet.data import BaseDataModule
 from deepfakedet.models import ViTClassifier
 
 
+def get_cfg_from_checkpoint(ckpt: dict[str, Any]) -> Any:
+    return OmegaConf.create(ckpt.get("cfg"))
+
+
 def load_model_from_checkpoint(
     ckpt: dict[str, Any],
 ) -> tuple[ViTClassifier, Any]:
-    cfg = OmegaConf.create(ckpt.get("cfg"))
+    cfg = get_cfg_from_checkpoint(ckpt)
     model: ViTClassifier = hydra.utils.instantiate(cfg.model)
 
     # extract model state from LightningModule
@@ -53,13 +58,16 @@ def export_onnx(model: ViTClassifier, output_dir: Path, cfg: Any) -> Path:
     return Path(output_dir) / "model.onnx"
 
 
-def quantize_onnx(onnx_path: Path, output_dir: Path, quant_type: str) -> Path:
+def quantize_onnx(
+    onnx_path: Path, output_dir: Path, quant_type: str, source_path: Path | None = None
+) -> Path:
     quant_type_str = quant_type.lower()
     quant = getattr(QuantType, quant_type)
 
+    input_path = source_path if source_path is not None else onnx_path
     output_path = output_dir / f"model_{quant_type_str}.onnx"
     quantize_dynamic(
-        model_input=str(onnx_path),
+        model_input=str(input_path),
         model_output=str(output_path),
         weight_type=quant,
     )
@@ -93,10 +101,15 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", "-c", type=str)
     parser.add_argument("--output-dir", "-o", type=str, default="exports/")
     parser.add_argument(
-        "--quant-type",
-        type=str,
-        default="QInt8",
-        help="QuantType member name (e.g. QInt8, QUInt8). Pass 'none' to skip.",
+        "--quant-types",
+        nargs="+",
+        help="One or more QuantType names (e.g. QInt8 QUInt8 QInt4) or 'none' to skip "
+        "quantization.",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing model.onnx if present.",
     )
 
     args = parser.parse_args()
@@ -104,52 +117,77 @@ if __name__ == "__main__":
 
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
 
-    model, cfg = load_model_from_checkpoint(ckpt)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    available = {p.stem: p for p in output_dir.glob("*.onnx")}
 
-    # merge LoRA with ViT model
-    model.merge_adapter()
+    onnx_path = output_dir / "model.onnx"
 
-    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    onnx_path = export_onnx(model, output_dir, cfg)
+    if "model" in available and not args.overwrite:
+        print(f"Found existing {onnx_path}, skipping export. Use --overwrite to force.")
+        cfg = get_cfg_from_checkpoint(ckpt)
+    else:
+        model, cfg = load_model_from_checkpoint(ckpt)
+        model.merge_adapter()
+        onnx_path = export_onnx(model, output_dir, cfg)
 
-    if args.quant_type != "none":
-        quant = args.quant_type
-        quantized_onnx_path = quantize_onnx(
-            onnx_path, output_dir=output_dir, quant_type=quant
-        )
+    model_paths: dict[str, Path] = {"none": onnx_path}
 
-    benchmark_onnx = benchmark(onnx_path, n_runs=100)
-    print(benchmark_onnx)
+    # pre-populate from already-exported quantized models
+    for quant_type in args.quant_types or []:
+        if quant_type == "none":
+            continue
+        stem = f"model_{quant_type.lower()}"
+        if stem in available and not args.overwrite:
+            print(
+                f"Found existing {available[stem]}, skipping. Use --overwrite to force."
+            )
+            model_paths[quant_type] = available[stem]
 
-    if args.quant_type != "none":
-        benchmark_quantized_onnx = benchmark(quantized_onnx_path, n_runs=100)
-        print(benchmark_quantized_onnx)
-        size_reduction = (
-            1 - benchmark_quantized_onnx["size_mb"] / benchmark_onnx["size_mb"]
-        ) * 100
-    latency_reduction = (
-        1 - benchmark_quantized_onnx["mean_ms"] / benchmark_onnx["mean_ms"]
-    ) * 100
+    # generate any that are still missing
+    for quant_type in args.quant_types or []:
+        if quant_type == "none" or quant_type in model_paths:
+            continue
 
-    print(
-        f"\n{'Metric':<20} {'FP32':>10} {'Quantized':>12} {'Delta':>10} \
-            {'Improvement':>12}"
-    )
-    print("-" * 68)
-    print(
-        f"{'Size (MB)':<20} {benchmark_onnx['size_mb']:>10.1f} "
-        f"{benchmark_quantized_onnx['size_mb']:>12.1f} "
-        f"{benchmark_quantized_onnx['size_mb'] - benchmark_onnx['size_mb']:>+10.1f} "
-        f"{size_reduction:>11.1f}%"
-    )
-    print(
-        f"{'Latency mean (ms)':<20} {benchmark_onnx['mean_ms']:>10.2f} "
-        f"{benchmark_quantized_onnx['mean_ms']:>12.2f} "
-        f"{benchmark_quantized_onnx['mean_ms'] - benchmark_onnx['mean_ms']:>+10.2f} "
-        f"{latency_reduction:>11.1f}%"
-    )
-    print(
-        f"{'Latency std (ms)':<20} {benchmark_onnx['std_ms']:>10.2f} "
-        f"{benchmark_quantized_onnx['std_ms']:>12.2f} "
-        f"{benchmark_quantized_onnx['std_ms'] - benchmark_onnx['std_ms']:>+10.2f}"
-    )
+        if quant_type in ("QInt4", "QUInt4"):
+            int8_source = model_paths.get("QInt8") or model_paths.get("QUInt8")
+            if int8_source is None:
+                print(
+                    f"Skipping {quant_type} — requires QInt8 or QUInt8 to be generated"
+                    " first."
+                )
+                continue
+            quantized_path = quantize_onnx(
+                onnx_path=onnx_path,
+                output_dir=output_dir,
+                quant_type=quant_type,
+                source_path=int8_source,
+            )
+        else:
+            quantized_path = quantize_onnx(
+                onnx_path=onnx_path, output_dir=output_dir, quant_type=quant_type
+            )
+
+        model_paths[quant_type] = quantized_path
+
+    # benchmark only base + requested types (in arg order)
+    to_benchmark = ["none"] + [
+        qt for qt in (args.quant_types or []) if qt in model_paths and qt != "none"
+    ]
+    benchmark_results = []
+
+    for model_name in to_benchmark:
+        benchmark_result = benchmark(model_paths[model_name], n_runs=100)
+        benchmark_result["name"] = model_name
+        benchmark_results.append(benchmark_result)
+
+    df = pd.DataFrame(benchmark_results)
+
+    base = df[df["name"] == "none"].iloc[0]
+    df["size_delta_%"] = (
+        (df["size_mb"] - base["size_mb"]) / base["size_mb"] * 100
+    ).round(2)
+    df["latency_delta_%"] = (
+        (df["mean_ms"] - base["mean_ms"]) / base["mean_ms"] * 100
+    ).round(2)
+
+    print(df.to_string(index=False))

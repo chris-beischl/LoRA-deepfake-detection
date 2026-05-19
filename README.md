@@ -150,16 +150,28 @@ standard ViT-B/16 with no PEFT dependency at inference time. Outputs are saved t
 **Model:** ViT-B/16 + LoRA (r=16, target: query + value projections)
 **Training:** 10 epochs, AdamW, cosine LR with warmup, batch size 128
 
-| Metric   | Test score |
-|----------|-----------|
-| Accuracy | 99.29%    |
-| AUROC    | 99.98%    |
-| F1       | 99.28%    |
-| Loss     | 0.0186    |
+**Classification (test set):**
+
+| Model         | Accuracy | AUROC  | F1     |
+|---------------|----------|--------|--------|
+| PyTorch FP32  | 99.29%   | 99.98% | 99.28% |
+| ONNX FP32     | 99.29%   | 99.98% | 99.28% |
+| ONNX INT8     | 99.13%   | 99.97% | 99.14% |
+| ONNX UINT8    | 99.18%   | 99.97% | 99.17% |
+
+**Quantization benchmark (CPU, 100 inference runs, batch size 1):**
+
+| Model     | Size (MB) | Latency mean (ms) | Latency std (ms) | Size Δ  | Latency Δ |
+|-----------|-----------|-------------------|------------------|---------|-----------|
+| ONNX FP32 | 327.5     | 136.3             | 36.8             | —       | —         |
+| ONNX INT8 | 82.9      | 46.9              | 10.2             | −74.7%  | −65.6%    |
 
 The model converges rapidly — 96.8% accuracy is already reached after epoch 2, with diminishing
 gains thereafter. LoRA keeps 99%+ of backbone parameters frozen throughout, training only
-~0.5M adapter parameters on top of the 86M ViT-B/16 backbone.
+~0.68% of total parameters (590k adapter params on top of 86M ViT-B/16 backbone).
+
+Dynamic INT8 quantization reduces model size by 4× and latency by 3× with a negligible
+0.16 percentage point accuracy drop.
 
 **Note on dataset scope:** Results reflect detection of StyleGAN2-generated faces specifically.
 Generalisation to other generation methods (diffusion models, face-swap) is not evaluated here.
