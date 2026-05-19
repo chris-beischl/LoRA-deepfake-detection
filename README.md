@@ -77,13 +77,37 @@ Checkpoints are saved to `checkpoints/{experiment}/{model}/{data}/{run_id}/`.
 
 ## Evaluation
 
-Run on the test set from a saved checkpoint:
-
+**PyTorch model:**
 ```bash
 uv run python eval.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt
 ```
-
 Results are logged to the original MLFlow run via the `run_id` stored in the checkpoint.
+
+**ONNX model:**
+```bash
+# CPU (default)
+uv run python eval.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt \
+  --onnx exports/model_qint8.onnx
+
+# CUDA
+uv run python eval.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt \
+  --onnx exports/model_qint8.onnx --provider CUDAExecutionProvider
+
+# Apple Silicon (CoreML)
+uv run python eval.py --checkpoint checkpoints/<path>/<checkpoint_name>.ckpt \
+  --onnx exports/model_qint8.onnx --provider CoreMLExecutionProvider
+```
+
+The `--checkpoint` flag is always required for ONNX evaluation — it provides the data
+configuration used to load the test set.
+
+> **Note on CUDA inference:** `onnxruntime` (default dependency) only supports CPU.
+> For GPU inference, replace it with `onnxruntime-gpu`:
+> ```bash
+> uv remove onnxruntime && uv add onnxruntime-gpu
+> ```
+> `onnxruntime` and `onnxruntime-gpu` are mutually exclusive — only one can be installed
+> at a time. The `CUDAExecutionProvider` automatically falls back to CPU if no GPU is available.
 
 ---
 
